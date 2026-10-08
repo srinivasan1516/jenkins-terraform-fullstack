@@ -30,7 +30,7 @@ pipeline {
             }
         }
 
-        stage('Terraform Format Check') {
+        stage('Terraform Format') {
             steps {
                 dir('terraform') {
                     sh 'terraform fmt -check'
@@ -49,27 +49,49 @@ pipeline {
         stage('Terraform Plan') {
             steps {
                 dir('terraform') {
-                    sh 'terraform plan -out=tfplan'
+
+                    withCredentials([
+                        [$class: 'AmazonWebServicesCredentialsBinding',
+                         credentialsId: 'aws-terraform']
+                    ]) {
+
+                        sh 'terraform plan -out=tfplan'
+                    }
                 }
             }
         }
 
         stage('Terraform Apply') {
             steps {
-                input message: 'Do you want to deploy the infrastructure?',
+
+                input message: 'Do you want to deploy to AWS?',
                       ok: 'Deploy'
 
                 dir('terraform') {
-                    sh 'terraform apply -auto-approve tfplan'
+
+                    withCredentials([
+                        [$class: 'AmazonWebServicesCredentialsBinding',
+                         credentialsId: 'aws-terraform']
+                    ]) {
+
+                        sh 'terraform apply -auto-approve tfplan'
+                    }
                 }
             }
         }
 
-        stage('Deployment Output') {
+        stage('Terraform Output') {
             steps {
+
                 dir('terraform') {
-                    sh 'terraform output'
-                    sh 'terraform output website_url'
+
+                    withCredentials([
+                        [$class: 'AmazonWebServicesCredentialsBinding',
+                         credentialsId: 'aws-terraform']
+                    ]) {
+
+                        sh 'terraform output'
+                    }
                 }
             }
         }
@@ -82,7 +104,7 @@ pipeline {
         }
 
         failure {
-            echo 'Terraform deployment failed. Check the console output.'
+            echo 'Terraform deployment failed.'
         }
 
         always {
